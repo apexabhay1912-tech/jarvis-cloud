@@ -5,12 +5,16 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from telegram.request import HTTPXRequest
 
+# ----------- TOKEN -----------
 BOT_TOKEN = os.getenv("8399881718:AAF7wvRp-QyBVk9vTJN6nKYWxbpd-uf2zJA")
-CHAT_ID_FILE = "chat_id.txt"
 
-# ---------- File Helpers ----------
+if not BOT_TOKEN:
+    raise Exception("BOT_TOKEN not found. Set it in Railway or Render environment variables.")
+
+print("Jarvis starting...")
+
+# ----------- FILE HELPERS -----------
 def load_json(filename, default):
     try:
         with open(filename, "r") as f:
@@ -22,7 +26,7 @@ def save_json(filename, data):
     with open(filename, "w") as f:
         json.dump(data, f, indent=2)
 
-# ---------- Study Tracking ----------
+# ----------- STUDY TRACKING -----------
 def add_study(hours, subject):
     data = load_json("study_hours.json", {"records": []})
     data["records"].append({
@@ -48,16 +52,21 @@ def get_study_report():
 
     return report
 
-# ---------- Deadlines ----------
+# ----------- DEADLINES -----------
 def get_deadlines():
     data = load_json("deadlines.json", {"deadlines": []})
     if not data["deadlines"]:
         return "No deadlines saved."
     return "Deadlines:\n" + "\n".join(data["deadlines"])
 
-# ---------- Morning Reminder ----------
+# ----------- REMINDER -----------
+CHAT_ID_FILE = "chat_id.txt"
+
 def send_morning_reminder(app):
     try:
+        if not os.path.exists(CHAT_ID_FILE):
+            return
+
         with open(CHAT_ID_FILE, "r") as f:
             chat_id = f.read().strip()
 
@@ -70,13 +79,13 @@ def send_morning_reminder(app):
     except Exception as e:
         print("Reminder error:", e)
 
-# ---------- Telegram ----------
+# ----------- TELEGRAM HANDLERS -----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(CHAT_ID_FILE, "w") as f:
         f.write(str(update.effective_chat.id))
 
     await update.message.reply_text(
-        "Jarvis Cloud Online.\n"
+        "Jarvis Cloud Online.\n\n"
         "Commands:\n"
         "jarvis studied 2 accounts\n"
         "jarvis study report\n"
@@ -115,19 +124,17 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Command not recognized.")
 
-# ---------- Error Handler ----------
 async def error_handler(update, context):
     print("Error:", context.error)
 
-# ---------- Start Bot ----------
-request = HTTPXRequest(connect_timeout=60, read_timeout=300)
-
-app = ApplicationBuilder().token(BOT_TOKEN).request(request).build()
+# ----------- START BOT -----------
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
 app.add_error_handler(error_handler)
 
+# ----------- SCHEDULER -----------
 scheduler = BackgroundScheduler()
 scheduler.add_job(lambda: send_morning_reminder(app), "cron", hour=10, minute=0)
 scheduler.start()
