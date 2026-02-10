@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-BOT_TOKEN = os.getenv("8399881718:AAF7wvRp-QyBVk9vTJN6nKYWxbpd-uf2zJA")
+BOT_TOKEN = os.getenv("8399881718:AAGEgHsTO3ZUGuJCEZb2ERyktrPWrkj3SMo")
 GROQ_API_KEY = os.getenv("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") # Changed from AI_API_KEY
 
 # Fallback for local testing (optional)
@@ -155,3 +155,4 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
     print("Jarvis is online and working...")
     app.run_polling()
+
