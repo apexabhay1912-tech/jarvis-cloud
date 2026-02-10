@@ -2,19 +2,31 @@ import json
 import os
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
-
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# -------- TOKEN --------
-BOT_TOKEN = os.getenv("8399881718:AAF7wvRp-QyBVk9vTJN6nKYWxbpd-uf2zJA")
+# ---------------- TOKEN LOADING ----------------
+def load_token():
+    # 1. Try environment variable (Railway/Render)
+    token = os.getenv("8399881718:AAF7wvRp-QyBVk9vTJN6nKYWxbpd-uf2zJA")
+    if token:
+        print("Token loaded from environment")
+        return token.strip()
 
-print("BOT_TOKEN loaded:", BOT_TOKEN is not None)
+    # 2. Try token.txt file (fallback)
+    if os.path.exists("token.txt"):
+        with open("token.txt", "r") as f:
+            token = f.read().strip()
+            if token:
+                print("Token loaded from token.txt")
+                return token
 
-if not BOT_TOKEN:
-    raise Exception("BOT_TOKEN not found. Set it in Railway variables.")
+    # 3. If nothing works
+    raise Exception("BOT_TOKEN not found. Set environment variable or create token.txt")
 
-# -------- FILE HELPERS --------
+BOT_TOKEN = load_token()
+
+# ---------------- FILE HELPERS ----------------
 def load_json(filename, default):
     try:
         if not os.path.exists(filename):
@@ -28,16 +40,14 @@ def save_json(filename, data):
     with open(filename, "w") as f:
         json.dump(data, f, indent=2)
 
-# -------- STUDY TRACKING --------
+# ---------------- STUDY TRACKING ----------------
 def add_study(hours, subject):
     data = load_json("study_hours.json", {"records": []})
-
     data["records"].append({
         "date": datetime.now().strftime("%Y-%m-%d"),
         "hours": hours,
         "subject": subject
     })
-
     save_json("study_hours.json", data)
 
 def get_study_report():
@@ -56,16 +66,14 @@ def get_study_report():
 
     return report
 
-# -------- DEADLINES --------
+# ---------------- DEADLINES ----------------
 def get_deadlines():
     data = load_json("deadlines.json", {"deadlines": []})
-
     if not data["deadlines"]:
         return "No deadlines saved."
-
     return "Deadlines:\n" + "\n".join(data["deadlines"])
 
-# -------- MORNING REMINDER --------
+# ---------------- REMINDERS ----------------
 CHAT_ID_FILE = "chat_id.txt"
 
 def send_morning_reminder(app):
@@ -76,16 +84,16 @@ def send_morning_reminder(app):
         with open(CHAT_ID_FILE, "r") as f:
             chat_id = f.read().strip()
 
-        msg = "Good morning.\n\n"
-        msg += get_deadlines()
-        msg += "\n\nSay 'jarvis study report' to see study hours."
+        message = "Good morning.\n\n"
+        message += get_deadlines()
+        message += "\n\nSay 'jarvis study report' to see study hours."
 
-        app.bot.send_message(chat_id=chat_id, text=msg)
+        app.bot.send_message(chat_id=chat_id, text=message)
 
     except Exception as e:
         print("Reminder error:", e)
 
-# -------- TELEGRAM HANDLERS --------
+# ---------------- TELEGRAM HANDLERS ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(CHAT_ID_FILE, "w") as f:
         f.write(str(update.effective_chat.id))
@@ -106,7 +114,6 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     command = text.replace("jarvis", "", 1).strip()
 
-    # Study record
     if command.startswith("studied"):
         try:
             parts = command.split()
@@ -118,12 +125,10 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Format: jarvis studied 2 accounts")
         return
 
-    # Study report
     if "study report" in command:
         await update.message.reply_text(get_study_report())
         return
 
-    # Deadlines
     if "deadlines" in command:
         await update.message.reply_text(get_deadlines())
         return
@@ -133,14 +138,14 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update, context):
     print("Error:", context.error)
 
-# -------- START BOT --------
+# ---------------- START BOT ----------------
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
 app.add_error_handler(error_handler)
 
-# -------- SCHEDULER --------
+# ---------------- SCHEDULER ----------------
 scheduler = BackgroundScheduler()
 scheduler.add_job(lambda: send_morning_reminder(app), "cron", hour=10, minute=0)
 scheduler.start()
