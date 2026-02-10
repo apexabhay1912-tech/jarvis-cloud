@@ -11,8 +11,8 @@ logging.basicConfig(
 )
 
 # Environment variables
-BOT_TOKEN = os.getenv("8399881718:AAGEgHsTO3ZUGuJCEZb2ERyktrPWrkj3SMo")
-GROQ_API_KEY = os.getenv("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")
+BOT_TOKEN = os.getenv("8399881718:AAGEgHsTO3ZUGuJCEZb2ERyktrPWrkj3SMo") or os.getenv("8399881718:AAGEgHsTO3ZUGuJCEZb2ERyktrPWrkj3SMo")
+GROQ_API_KEY = os.getenv("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") or os.getenv("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")
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is missing. Set it in Railway Variables.")
